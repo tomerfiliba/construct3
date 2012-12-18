@@ -1,4 +1,3 @@
-import struct as _struct
 from construct3.lib import singleton
 try:
     from io import BytesIO
@@ -14,8 +13,6 @@ class ArrayError(PackerError):
     pass
 class SwitchError(PackerError):
     pass
-class ValidationError(PackerError):
-    pass
 
 
 class Packer(object):
@@ -28,9 +25,15 @@ class Packer(object):
         raise NotImplementedError()
 
     def unpack(self, buf):
-        return self._unpack(BytesIO(buf))
+        return self._unpack(BytesIO(buf), {})
     def _unpack(self, stream, ctx):
         raise NotImplementedError()
+
+    def sizeof(self, ctx = None):
+        return self._sizeof(ctx if ctx else {})
+    def _sizeof(self, ctx):
+        raise NotImplementedError()
+
 
 @singleton
 class Noop(Packer):
@@ -39,6 +42,8 @@ class Noop(Packer):
         pass
     def _unpack(self, stream, ctx):
         return None
+    def _sizeof(self, ctx = None):
+        return 0
 
 class CtxConst(object):
     __slots__ = ["value"]
@@ -54,6 +59,7 @@ def contextify(value):
         return value
     else:
         return CtxConst(value)
+
 
 class Adapter(Packer):
     __slots__ = ["underlying", "_decode", "_encode"]
@@ -71,6 +77,8 @@ class Adapter(Packer):
     def _unpack(self, stream, ctx):
         obj = self.underlying._unpack(stream, ctx)
         return self.decode(obj, ctx)
+    def _sizeof(self, ctx):
+        return self.underlying._sizeof(ctx)
     
     def encode(self, obj, ctx):
         if self._encode:
@@ -82,6 +90,7 @@ class Adapter(Packer):
             return self._decode(obj, ctx)
         else:
             return obj
+
 
 class Field(Packer):
     __slots__ = ["length"]
@@ -100,110 +109,172 @@ class Field(Packer):
         if len(data) != length:
             raise FieldError("expected buffer of length %d, got %d" % (length, len(data)))
         return data
-
-class FormattedField(Adapter):
-    __slots__ = ["fmt"]
-    FORMAT = None
-    def __init__(self):
-        self.fmt = _struct.Struct(self.FORMAT)
-        Adapter.__init__(self, Field(self.fmt.size))
-    def encode(self, obj, ctx):
-        return self.fmt.pack(obj)
-    def decode(self, obj, ctx):
-        return self.fmt.unpack(obj)[0]
-
-@singleton
-class u_int8(FormattedField):
-    """Unsigned 8-bit integer"""
-    FORMAT = "B"
-
-@singleton
-class s_int8(FormattedField):
-    """Signed 8-bit integer"""
-    FORMAT = "b"
-
-@singleton
-class ub_int16(FormattedField):
-    """Unsigned big-endian 16-bit integer"""
-    FORMAT = "!H"
-
-@singleton
-class sb_int16(FormattedField):
-    """Signed big-endian 16-bit integer"""
-    FORMAT = "!h"
-
-@singleton
-class ul_int16(FormattedField):
-    """Unsigned little-endian 16-bit integer"""
-    FORMAT = "<H"
-
-@singleton
-class sl_int16(FormattedField):
-    """Signed little-endian 16-bit integer"""
-    FORMAT = "<h"
-
-@singleton
-class ub_int32(FormattedField):
-    """Unsigned big-endian 32-bit integer"""
-    FORMAT = "!L"
-
-@singleton
-class sb_int32(FormattedField):
-    """Signed big-endian 32-bit integer"""
-    FORMAT = "!l"
-
-@singleton
-class ul_int32(FormattedField):
-    """Unsigned little-endian 32-bit integer"""
-    FORMAT = "<L"
-
-@singleton
-class sl_int32(FormattedField):
-    """Signed little-endian 32-bit integer"""
-    FORMAT = "<l"
-
-@singleton
-class ub_int64(FormattedField):
-    """Unsigned big-endian 64-bit integer"""
-    FORMAT = "!Q"
-
-@singleton
-class sb_int64(FormattedField):
-    """Signed big-endian 64-bit integer"""
-    FORMAT = "!q"
-
-@singleton
-class ul_int64(FormattedField):
-    """Unsigned little-endian 64-bit integer"""
-    FORMAT = "<Q"
-
-@singleton
-class sl_int64(FormattedField):
-    """Signed little-endian 64-bit integer"""
-    FORMAT = "<q"
-
-@singleton
-class b_float32(FormattedField):
-    """Big-endian 32-bit floating point number"""
-    FORMAT = "!f"
-
-@singleton
-class b_float64(FormattedField):
-    """Big-endian 64-bit floating point number"""
-    FORMAT = "!d"
-
-@singleton
-class l_float32(FormattedField):
-    """Little-endian 32-bit floating point number"""
-    FORMAT = "<f"
-
-@singleton
-class l_float64(FormattedField):
-    """Little-endian 64-bit floating point number"""
-    FORMAT = "<d"
+    def _sizeof(self, ctx):
+        return self.length(ctx)
 
 
+def Member(name, packer):
+    return (name, packer)
 
+
+class Struct(Packer):
+    __slots__ = ["members", "container_factory"]
+    
+    def __init__(self, *members, **kwargs):
+        self.members = members
+        self.container_factory = kwargs.pop("container_factory", dict)
+        if kwargs:
+            raise TypeError("invalid keyword argument(s): %s" % (", ".join(kwargs.keys()),))
+        for mem in members:
+            if not hasattr(mem, "__len__") or len(mem) != 2 or not isinstance(mem[1], Packer):
+                raise TypeError("struct members must be 2-tuples of (name, Packer): %r" % (mem,))
+
+    def __repr__(self):
+        return "Struct(%s)" % (", ".join(repr(m) for m in self.members),)
+    
+    def _unpack(self, stream, ctx):
+        obj = self.container_factory()
+        ctx2 = {"_" : ctx}
+        for mem_name, mem_packer in self.members:
+            obj2 = mem_packer._unpack(stream, ctx2)
+            ctx2[mem_name] = obj[mem_name] = obj2
+        return obj
+    
+    def _pack(self, stream, obj, ctx):
+        ctx2 = {"_" : ctx}
+        for mem_name, mem_packer in self.members:
+            obj2 = ctx2[mem_name] = obj[mem_name]
+            mem_packer._pack(stream, obj2, ctx2)
+    
+    def _sizeof(self, ctx):
+        ctx2 = {"_" : ctx}
+        return sum(mem_packer.sizeof(ctx2) for _, mem_packer in self.members)
+
+
+class Sequence(Packer):
+    __slots__ = ["members", "container_factory"]
+    
+    def __init__(self, *members, **kwargs):
+        self.members = members
+        self.container_factory = kwargs.pop("container_factory", list)
+        if kwargs:
+            raise TypeError("invalid keyword argument(s): %s" % (", ".join(kwargs.keys()),))
+        for mem in members:
+            if not isinstance(mem, Packer):
+                raise TypeError("sequence members must be Packers: %r" % (mem,))
+
+    def __repr__(self):
+        return "Sequence(%s)" % (", ".join(repr(m) for m in self.members),)
+    
+    def _unpack(self, stream, ctx):
+        obj = self.container_factory()
+        ctx2 = {"_" : ctx}
+        for i, packer in enumerate(self.members):
+            obj2 = packer._unpack(stream, ctx2)
+            ctx2[i] = obj[i] = obj2
+        return obj
+    
+    def _pack(self, stream, obj, ctx):
+        ctx2 = {"_" : ctx}
+        for i, Packer in enumerate(self.members):
+            obj2 = ctx2[i] = obj[i]
+            Packer._pack(stream, obj2, ctx2)
+    
+    def _sizeof(self, ctx):
+        ctx2 = {"_" : ctx}
+        return sum(mem_packer._sizeof(ctx2) for _, mem_packer in self.members)
+
+
+class Array(Packer):
+    __slots__ = ["count", "itempkr"]
+    def __init__(self, count, itempkr):
+        self.count = contextify(count)
+        self.itempkr = itempkr
+    
+    def __repr__(self):
+        return "Array(%r, %r)" % (self.count, self.itempkr)
+    
+    def _pack(self, stream, obj, ctx):
+        count = self.count(ctx)
+        if len(obj) != count:
+            raise ArrayError("expected %d items, found %d", count, len(obj))
+        ctx2 = {"_" : ctx}
+        for i, item in enumerate(obj):
+            ctx2[i] = item
+            self.itempkr._pack(stream, item, ctx2)
+    
+    def _unpack(self, stream, ctx):
+        count = self.count(ctx)
+        ctx2 = {"_" : ctx}
+        obj = [None] * count
+        for i in range(count):
+            obj2 = self.itempkr._unpack(stream, ctx2)
+            obj[i] = ctx2[i] = obj2
+        return obj
+
+    def _sizeof(self, ctx):
+        return self.count(ctx) * self.itempkr._sizeof({"_" : ctx})
+
+
+class While(Packer):
+    __slots__ = ["cond", "itempkr"]
+    def __init__(self, cond, itempkr):
+        self.cond = contextify(cond)
+        self.itempkr = itempkr
+    
+    def __repr__(self):
+        return "While(%r, %r)" % (self.cond, self.itempkr)
+    
+    def _pack(self, stream, obj, ctx):
+        ctx2 = {"_" : ctx}
+        for i, item in enumerate(obj):
+            ctx2[i] = item
+            self.itempkr._pack(stream, item, ctx2)
+            if not self.cond(ctx2):
+                break
+    
+    def _unpack(self, stream, ctx):
+        ctx2 = {"_" : ctx}
+        obj = []
+        i = 0
+        while True:
+            obj2 = ctx2[i] = self.itempkr._unpack(stream, ctx2)
+            if not self.cond(ctx2):
+                break
+            obj.append(obj2)
+            i += 1
+        return obj
+    
+    def _sizeof(self):
+        raise NotImplementedError("Cannot compute sizeof for 'While'")
+
+
+class Switch(Packer):
+    __slots__ = ["expr", "cases", "default"]
+    def __init__(self, expr, cases, default = None):
+        self.expr = contextify(expr)
+        self.cases = cases
+        self.default = default
+    
+    def _choose_packer(self, ctx):
+        val = self.expr(ctx)
+        if val in self.cases:
+            return self.cases[val]
+        elif self.default:
+            return self.default
+        else:
+            raise SwitchError("cannot find a handler for value", val)
+    
+    def _pack(self, stream, obj, ctx):
+        pkr = self._choose_packer(ctx)
+        pkr._pack(stream, obj, ctx)
+    
+    def _unpack(self, stream, ctx):
+        pkr = self._choose_packer(ctx)
+        return pkr._unpack(stream, ctx)
+
+    def _sizeof(self, ctx):
+        return self._choose_packer(ctx)._sizeof(ctx)
 
 
 
