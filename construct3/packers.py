@@ -38,7 +38,7 @@ class Packer(object):
 @singleton
 class Noop(Packer):
     __slots__ = ()
-    def _pack(self, stream, obj, ctx):
+    def _pack(self, obj, stream, ctx):
         pass
     def _unpack(self, stream, ctx):
         return None
@@ -71,9 +71,9 @@ class Adapter(Packer):
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, self.underlying)
 
-    def _pack(self, stream, obj, ctx):
+    def _pack(self, obj, stream, ctx):
         obj2 = self.encode(obj, ctx)
-        self.underlying._pack(stream, obj2, ctx)
+        self.underlying._pack(obj2, stream, ctx)
     def _unpack(self, stream, ctx):
         obj = self.underlying._unpack(stream, ctx)
         return self.decode(obj, ctx)
@@ -98,7 +98,7 @@ class Field(Packer):
         self.length = contextify(length)
     def __repr__(self):
         return "Field(%r)" % (self.length,)
-    def _pack(self, stream, obj, ctx):
+    def _pack(self, obj, stream, ctx):
         length = self.length(ctx)
         if len(obj) != length:
             raise FieldError("expected buffer of length %d, got %d" % (length, len(obj)))
@@ -125,9 +125,14 @@ class Struct(Packer):
         self.container_factory = kwargs.pop("container_factory", dict)
         if kwargs:
             raise TypeError("invalid keyword argument(s): %s" % (", ".join(kwargs.keys()),))
+        names = set()
         for mem in members:
             if not hasattr(mem, "__len__") or len(mem) != 2 or not isinstance(mem[1], Packer):
-                raise TypeError("struct members must be 2-tuples of (name, Packer): %r" % (mem,))
+                raise TypeError("Struct members must be 2-tuples of (name, Packer): %r" % (mem,))
+            if mem[0] in names:
+                raise TypeError("Member %r already exists in this struct" % (mem[0],))
+            if mem[0]:
+                names.add(mem[0])
 
     def __repr__(self):
         return "Struct(%s)" % (", ".join(repr(m) for m in self.members),)
@@ -140,11 +145,11 @@ class Struct(Packer):
             ctx2[mem_name] = obj[mem_name] = obj2
         return obj
     
-    def _pack(self, stream, obj, ctx):
+    def _pack(self, obj, stream, ctx):
         ctx2 = {"_" : ctx}
         for mem_name, mem_packer in self.members:
             obj2 = ctx2[mem_name] = obj[mem_name]
-            mem_packer._pack(stream, obj2, ctx2)
+            mem_packer._pack(obj2, stream, ctx2)
     
     def _sizeof(self, ctx):
         ctx2 = {"_" : ctx}
@@ -174,11 +179,11 @@ class Sequence(Packer):
             ctx2[i] = obj[i] = obj2
         return obj
     
-    def _pack(self, stream, obj, ctx):
+    def _pack(self, obj, stream, ctx):
         ctx2 = {"_" : ctx}
         for i, Packer in enumerate(self.members):
             obj2 = ctx2[i] = obj[i]
-            Packer._pack(stream, obj2, ctx2)
+            Packer._pack(obj2, stream, ctx2)
     
     def _sizeof(self, ctx):
         ctx2 = {"_" : ctx}
@@ -194,14 +199,14 @@ class Array(Packer):
     def __repr__(self):
         return "Array(%r, %r)" % (self.count, self.itempkr)
     
-    def _pack(self, stream, obj, ctx):
+    def _pack(self, obj, stream, ctx):
         count = self.count(ctx)
         if len(obj) != count:
             raise ArrayError("expected %d items, found %d", count, len(obj))
         ctx2 = {"_" : ctx}
         for i, item in enumerate(obj):
             ctx2[i] = item
-            self.itempkr._pack(stream, item, ctx2)
+            self.itempkr._pack(item, stream, ctx2)
     
     def _unpack(self, stream, ctx):
         count = self.count(ctx)
@@ -225,11 +230,11 @@ class While(Packer):
     def __repr__(self):
         return "While(%r, %r)" % (self.cond, self.itempkr)
     
-    def _pack(self, stream, obj, ctx):
+    def _pack(self, obj, stream, ctx):
         ctx2 = {"_" : ctx}
         for i, item in enumerate(obj):
             ctx2[i] = item
-            self.itempkr._pack(stream, item, ctx2)
+            self.itempkr._pack(item, stream, ctx2)
             if not self.cond(ctx2):
                 break
     
@@ -265,9 +270,9 @@ class Switch(Packer):
         else:
             raise SwitchError("cannot find a handler for value", val)
     
-    def _pack(self, stream, obj, ctx):
+    def _pack(self, obj, stream, ctx):
         pkr = self._choose_packer(ctx)
-        pkr._pack(stream, obj, ctx)
+        pkr._pack(obj, stream, ctx)
     
     def _unpack(self, stream, ctx):
         pkr = self._choose_packer(ctx)

@@ -1,0 +1,4 @@
+* bit level stuff
+* tunneling, buffering, restream
+* pointers
+* crc
