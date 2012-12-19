@@ -1,5 +1,5 @@
 import struct as _struct
-from construct3.packers import Adapter, Noop, Struct, Field, Member, PackerError
+from construct3.packers import Adapter, Noop, Struct, Raw, Member, PackerError
 from construct3.lib import this
 
 
@@ -42,7 +42,7 @@ class NoneOf(Adapter):
 class Signature(Adapter):
     __slots__ = ["value"]
     def __init__(self, value):
-        Adapter.__init__(self, Field(len(value)))
+        Adapter.__init__(self, Raw(len(value)))
         self.value = value
     def decode(self, obj, ctx):
         if obj != self.value:
@@ -56,7 +56,7 @@ class LengthValue(Adapter):
     def __init__(self, lengthpkr):
         Adapter.__init__(self, Struct(
             Member("length", lengthpkr), 
-            Member("data", Field(this.length)),
+            Member("data", Raw(this.length)),
             )
         )
     def decode(self, obj, ctx):
@@ -74,12 +74,12 @@ class StringAdapter(Adapter):
     def encode(self, obj, ctx):
         return obj.encode(self.encoding)
 
-class FormattedField(Adapter):
+class Formatted(Adapter):
     __slots__ = ["fmt"]
     FORMAT = None
     def __init__(self):
         self.fmt = _struct.Struct(self.FORMAT)
-        Adapter.__init__(self, Field(self.fmt.size))
+        Adapter.__init__(self, Raw(self.fmt.size))
     def encode(self, obj, ctx):
         return self.fmt.pack(obj)
     def decode(self, obj, ctx):

@@ -7,7 +7,7 @@ except ImportError:
 
 class PackerError(Exception):
     pass
-class FieldError(PackerError):
+class RawError(PackerError):
     pass
 class ArrayError(PackerError):
     pass
@@ -92,30 +92,39 @@ class Adapter(Packer):
             return obj
 
 
-class Field(Packer):
+class Raw(Packer):
     __slots__ = ["length"]
     def __init__(self, length):
         self.length = contextify(length)
     def __repr__(self):
-        return "Field(%r)" % (self.length,)
+        return "Raw(%r)" % (self.length,)
     def _pack(self, obj, stream, ctx):
         length = self.length(ctx)
         if len(obj) != length:
-            raise FieldError("expected buffer of length %d, got %d" % (length, len(obj)))
+            raise RawError("expected buffer of length %d, got %d" % (length, len(obj)))
         stream.write(obj)
     def _unpack(self, stream, ctx):
         length = self.length(ctx)
         data = stream.read(length)
         if len(data) != length:
-            raise FieldError("expected buffer of length %d, got %d" % (length, len(data)))
+            raise RawError("expected buffer of length %d, got %d" % (length, len(data)))
         return data
     def _sizeof(self, ctx):
         return self.length(ctx)
 
 
-def Member(name, packer):
-    return (name, packer)
-
+def Member(*args, **kwargs):
+    if (args and kwargs) or (not args and not kwargs):
+        raise TypeError("This function takes either two positional arguments or a single keyword attribute", args, kwargs)
+    if args:
+        if len(args) != 2:
+            raise TypeError("Expected exactly two positional arguments", args)
+        else:
+            return args
+    else:
+        if len(kwargs) != 1:
+            raise TypeError("Expected exactly one keyword argument", kwargs)
+        return kwargs.popitem()
 
 class Struct(Packer):
     __slots__ = ["members", "container_factory"]

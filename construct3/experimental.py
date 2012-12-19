@@ -33,13 +33,18 @@ class DigestedStruct(Struct):
         return obj, digestor
 
 #class Modified(Packer):
-#    def __init__(self, underlying, ctx_factory):
+#    def __init__(self, underlying, ctx_modifier):
 #        self.underlying = underlying
-#        self.ctx_factory = ctx_factory
+#        self.ctx_modifier = ctx_modifier
 #    def _unpack(self, stream, ctx):
 #        ctx2 = ctx.copy()
-#        ctx2.update(self.ctx_factory())
-#        return 
+#        self.ctx_modifier(ctx2)
+#        return self.underlying._unpack(stream, ctx2)
+#
+#def DigestedStruct(*members, **kwargs):
+#    digestor_factory = kwargs.pop("digestor_factory")
+#    return Modified(Struct(*members, **kwargs),
+#                    lambda ctx: ctx.update(__digestor__ = digestor_factory()))
 
 if __name__ == "__main__":
     from construct3.macros import ub_int64
