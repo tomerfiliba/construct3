@@ -7,9 +7,9 @@ ipaddr = Adapter(int8u[4],
 )
 
 ipv4_header = Struct(
-    "foo" / BitStruct(
+    +BitStruct(
         "version" / nibble,
-        "header_length" / Adapter(nibble, decode = lambda obj, ctx: obj * 4, encode = lambda obj, ctx: obj / 4),
+        "header_length" / Adapter(nibble, decode = lambda obj, _: obj * 4, encode = lambda obj, _: obj / 4),
     ),
     "tos" / BitStruct(
         "precedence" / Bits(3),
@@ -20,9 +20,9 @@ ipv4_header = Struct(
         Padding(1),
     ),
     "total_length" / int16ub,
-    "payload_length" / Computed(this.total_length - this.foo.header_length),
+    "payload_length" / Computed(this.total_length - this.header_length),
     int16ub / "identification",
-    "crap" / BitStruct(
+    +BitStruct(
         "flags" / Struct(
             Padding(1),
             "dont_fragment" / flag,
@@ -35,7 +35,7 @@ ipv4_header = Struct(
     "checksum" / int16ub,
     "source" / ipaddr,
     "destination" / ipaddr,
-    "options" / Raw(this.foo.header_length - 20),
+    "options" / Raw(this.header_length - 20),
 )
 
 
@@ -43,7 +43,9 @@ if __name__ == "__main__":
     cap = "4500003ca0e3000080116185c0a80205d474a126".decode("hex")
     obj = ipv4_header.unpack(cap)
     print (obj)
-    print (repr(ipv4_header.pack(obj)))
+    #rebuilt = ipv4_header.pack(obj)
+    #print (repr(rebuilt))
+    #assert cap == rebuilt
 
 
 

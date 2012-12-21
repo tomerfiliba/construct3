@@ -1,6 +1,7 @@
 from construct3.lib import singleton
 import sys
 from construct3.lib.binutil import BitStreamReader, BitStreamWriter
+from construct3.lib.containers import Container
 try:
     from io import BytesIO
 except ImportError:
@@ -51,8 +52,11 @@ class Packer(object):
     def __rshift__(self, rhs):
         return _join(self, rhs)
     def __truediv__(self, name):
-        return Member(name, self)
+        return NamedPacker(name, self)
     __rdiv__ = __rtruediv__ = __div__ = __truediv__
+    def __inv__(self):
+        return Embedded(self)
+    __invert__ = __pos__ = __inv__ 
 
 
 @singleton
@@ -133,7 +137,7 @@ class Raw(Packer):
     def _sizeof(self, ctx):
         return self.length(ctx)
 
-class Member(tuple):
+class NamedPacker(tuple):
     __slots__ = ()
     def __new__(cls, *args, **kwargs):
         if (args and kwargs) or (not args and not kwargs):
@@ -181,12 +185,35 @@ def _join(lhs, rhs):
     else:
         raise TypeError("Cannot join %r and %r" % (lhs, rhs))
 
+class Embedded(Packer):
+    __slots__ = ["underlying"]
+    def __init__(self, underlying):
+        self.underlying = underlying
+    def _unpack(self, stream, ctx):
+        return self.underlying._unpack(stream, ctx)
+    def _pack(self, obj, stream, ctx):
+        self.underlying._pack(obj, stream, ctx)
+    def _sizeof(self, ctx):
+        return self.underlying._sizeof(ctx)
+    # make us look like a tuple
+    def __iter__(self):
+        return iter((None, self))
+    def __len__(self):
+        return 2
+    def __getitem__(self, index):
+        return None if index == 0 else self
+    def __truediv__(self, other):
+        raise TypeError("Padding cannot take a name")
+    __div__ = __rdiv__ = __rtruediv__ = __truediv__
+
+
 class Struct(Packer):
-    __slots__ = ["members", "container_factory"]
+    __slots__ = ["members", "container_factory", "_embedded"]
     
     def __init__(self, *members, **kwargs):
         self.members = members
-        self.container_factory = kwargs.pop("container_factory", dict)
+        self._embedded = False
+        self.container_factory = kwargs.pop("container_factory", Container)
         if kwargs:
             raise TypeError("invalid keyword argument(s): %s" % (", ".join(kwargs.keys()),))
         names = set()
@@ -205,9 +232,14 @@ class Struct(Packer):
         obj = self.container_factory()
         ctx2 = {"_" : ctx}
         for mem_name, mem_packer in self.members:
-            obj2 = mem_packer._unpack(stream, ctx2)
-            if mem_name is not None:
-                ctx2[mem_name] = obj[mem_name] = obj2
+            if isinstance(mem_packer, Embedded):
+                obj2 = mem_packer._unpack(stream, ctx)
+                for k, v in obj2.items():
+                    ctx2[k] = obj[k] = v
+            else:
+                obj2 = mem_packer._unpack(stream, ctx2)
+                if mem_name is not None:
+                    ctx2[mem_name] = obj[mem_name] = obj2
         return obj
     
     def _pack(self, obj, stream, ctx):
@@ -222,11 +254,6 @@ class Struct(Packer):
     def _sizeof(self, ctx):
         ctx2 = {"_" : ctx}
         return sum(mem_packer.sizeof(ctx2) for _, mem_packer in self.members)
-    
-    def embedded(self):
-        self._embedded = True
-        return self
-
 
 class Sequence(Packer):
     __slots__ = ["members", "container_factory"]

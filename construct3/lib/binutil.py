@@ -132,12 +132,17 @@ class BitStreamWriter(object):
         self.buffer = empty
     def write(self, bits):
         self.buffer += bits
-    def flush(self):
-        if self.buffer:
-            self.stream.write(bits_to_bytes(self.buffer))
-            self.buffer = empty
+    def flush(self, force_all = False):
+        if not self.buffer:
+            return
+        if force_all and len(self.buffer) & 7:
+            raise ValueError("Written data must sum up to whole bytes (got %r bits)" % (len(self.buffer,)))
+        count = (len(self.buffer) >> 3) << 3
+        bits = self.buffer[:count]
+        self.buffer = self.buffer[count:]
+        self.stream.write(bits_to_bytes(bits))
     def close(self):
-        self.flush()
+        self.flush(True)
 
 _printable = ["."] * 256
 _printable[32:128] = [chr(i) for i in range(32, 128)]

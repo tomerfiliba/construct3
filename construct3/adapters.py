@@ -1,11 +1,10 @@
-from construct3.packers import Adapter, noop, Struct, Raw, Member, PackerError, contextify
+from construct3.packers import Adapter, noop, Raw, PackerError, contextify
 from construct3.lib import this
 try:
     from io import BytesIO
 except ImportError:
     from cStringIO import StringIO as BytesIO
 import six
-from construct3.lib.binutil import num_to_bits, bits_to_num, swap_bytes
 
 
 class ValidationError(PackerError):
@@ -85,11 +84,7 @@ class Mapping(Adapter):
 class LengthValue(Adapter):
     __slots__ = ()
     def __init__(self, lengthpkr):
-        Adapter.__init__(self, Struct(
-            Member(length = lengthpkr), 
-            Member(data = Raw(this.length)),
-            )
-        )
+        Adapter.__init__(self, lengthpkr >> Raw(this[0]))
     def decode(self, obj, ctx):
         return obj["data"]
     def encode(self, obj, ctx):
