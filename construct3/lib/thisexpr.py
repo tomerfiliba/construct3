@@ -150,6 +150,7 @@ class Path(ExprMixin):
         return context2[self.__name]
     def __getattr__(self, name):
         return Path(name, self)
+    __getitem__ = __getattr__
 
 
 # let the magic begin!
