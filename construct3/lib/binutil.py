@@ -114,19 +114,16 @@ class BitStreamReader(object):
     def read(self, count):
         if count == 0:
             return empty
-        if count < len(self.buffer):
-            buf = self.buffer[:count]
-            self.buffer = self.buffer[count:]
-            return buf
-        data = self.stream.read(count // 8 + bool(count & 7))
-        self.buffer += bytes_to_bits(data)
+        if count > len(self.buffer):
+            extra = count - len(self.buffer)
+            data = self.stream.read(extra // 8 + bool(extra & 7))
+            self.buffer += bytes_to_bits(data)
         buf = self.buffer[:count]
         self.buffer = self.buffer[count:]
         return buf
     def close(self):
         if self.buffer:
-            pass
-            #raise ValueError("Not all data has been consumed (it must sum up to whole bytes)", self.buffer)
+            raise ValueError("Not all data has been consumed (it must sum up to whole bytes)", self.buffer)
 
 class BitStreamWriter(object):
     __slots__ = ["stream", "buffer"]

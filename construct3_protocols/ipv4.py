@@ -19,20 +19,23 @@ ipv4_header = Struct(
         "minimize_cost" / flag,
         Padding(1),
     ),
-    Padding(2),
     "total_length" / int16ub,
-#    Computed(this.total_length - this.foo.header_length) / "payload_length",
-#    int16ub / "identification",
-#    BitStruct(
-#        (Padding(1) >> flag / "dont_fragment" >> flag / "more_fragments") / "flags",
-#        Bits(13) / "frame_offset",
-#    ) / "crap",
-#    int8u / "ttl",
-#    Enum(int8u, ICMP = 1, TCP = 6, UDP = 17) / "protocol",
-#    int16ub / "checksum",
-#    ipaddr / "source",
-#    ipaddr / "destination",
-#    Raw(this.header_length - 20) / "options",
+    "payload_length" / Computed(this.total_length - this.foo.header_length),
+    int16ub / "identification",
+    "crap" / BitStruct(
+        "flags" / Struct(
+            Padding(1),
+            "dont_fragment" / flag,
+            "more_fragments" / flag,
+        ),
+        "frame_offset" / Bits(13),
+    ),
+    "ttl" / int8u,
+    "protocol" / Enum(int8u, ICMP = 1, TCP = 6, UDP = 17),
+    "checksum" / int16ub,
+    "source" / ipaddr,
+    "destination" / ipaddr,
+    "options" / Raw(this.foo.header_length - 20),
 )
 
 

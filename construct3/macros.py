@@ -18,6 +18,8 @@ def Bijection(pkr, enc_mapping, default = NotImplemented):
     if default is not NotImplemented:
         enc_default = enc_mapping[default]
         dec_default = dec_mapping[enc_default]
+    else:
+        enc_default = dec_default = NotImplemented
     return Mapping(pkr, dec_mapping, enc_mapping, dec_default, enc_default)
 
 def Enum(pkr, **kwargs):

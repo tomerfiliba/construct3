@@ -58,14 +58,12 @@ class Mapping(Adapter):
         self.dec_mapping = dec_mapping
         self.dec_default = dec_default
     def encode(self, obj, ctx):
-        print "@@E", self.enc_mapping
         if obj in self.enc_mapping:
             return self.enc_mapping[obj]
         if self.enc_default is NotImplemented:
             raise KeyError("%r is unknown and a default value is not given" % (obj,))
         return self.enc_default
     def decode(self, obj, ctx):
-        print "@@D", self.dec_mapping
         if obj in self.dec_mapping:
             return self.dec_mapping[obj]
         if self.dec_default is NotImplemented:
