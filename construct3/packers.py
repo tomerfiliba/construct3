@@ -52,7 +52,7 @@ class Packer(object):
         return _join(self, rhs)
     def __truediv__(self, name):
         return Member(name, self)
-    __div__ = __truediv__
+    __rdiv__ = __rtruediv__ = __div__ = __truediv__
 
 
 @singleton

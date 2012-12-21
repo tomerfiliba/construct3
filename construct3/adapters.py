@@ -51,19 +51,21 @@ class Computed(SymmetricAdapter):
 
 class Mapping(Adapter):
     __slots__ = ["pkr", "enc_mapping", "enc_default", "dec_mapping", "dec_default"]
-    def __init__(self, pkr, enc_mapping, dec_mapping, enc_default = NotImplemented, dec_default = NotImplemented):
+    def __init__(self, pkr, dec_mapping, enc_mapping, dec_default = NotImplemented, enc_default = NotImplemented):
         Adapter.__init__(self, pkr)
         self.enc_mapping = enc_mapping
         self.enc_default = enc_default
         self.dec_mapping = dec_mapping
         self.dec_default = dec_default
     def encode(self, obj, ctx):
+        print "@@E", self.enc_mapping
         if obj in self.enc_mapping:
             return self.enc_mapping[obj]
         if self.enc_default is NotImplemented:
             raise KeyError("%r is unknown and a default value is not given" % (obj,))
         return self.enc_default
     def decode(self, obj, ctx):
+        print "@@D", self.dec_mapping
         if obj in self.dec_mapping:
             return self.dec_mapping[obj]
         if self.dec_default is NotImplemented:
@@ -126,6 +128,9 @@ class Padding(Adapter):
         return 2
     def __getitem__(self, index):
         return None if index == 0 else self
+    def __truediv__(self, other):
+        raise TypeError("Padding cannot take a name")
+    __div__ = __rdiv__ = __rtruediv__ = __truediv__
 
 #class FlagsAdapter(Adapter):
 #    __slots__ = ["flags"]

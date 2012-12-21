@@ -7,32 +7,32 @@ ipaddr = Adapter(int8u[4],
 )
 
 ipv4_header = Struct(
-    BitStruct(
-        nibble / "version",
-        Adapter(nibble, decode = lambda obj, ctx: obj * 4, encode = lambda obj, ctx: obj / 4) / "header_length",
-    ) / "foo",
-    BitStruct(
-        Bits(3) / "precedence",
-        flag / "minimize_delay",
-        flag / "high_throuput",
-        flag / "high_reliability",
-        flag / "minimize_cost",
+    "foo" / BitStruct(
+        "version" / nibble,
+        "header_length" / Adapter(nibble, decode = lambda obj, ctx: obj * 4, encode = lambda obj, ctx: obj / 4),
+    ),
+    "tos" / BitStruct(
+        "precedence" / Bits(3),
+        "minimize_delay" / flag,
+        "high_throuput" / flag,
+        "high_reliability" / flag,
+        "minimize_cost" / flag,
         Padding(1),
-    ) / "tos",
+    ),
     Padding(2),
-    int16ub / "total_length",
-    Computed(this.total_length - this.foo.header_length) / "payload_length",
-    int16ub / "identification",
-    BitStruct(
-        (Padding(1) >> flag / "dont_fragment" >> flag / "more_fragments") / "flags",
-        Bits(13) / "frame_offset",
-    ) / "crap",
-    int8u / "ttl",
-    Enum(int8u, ICMP = 1, TCP = 6, UDP = 17) / "protocol",
-    int16ub / "checksum",
-    ipaddr / "source",
-    ipaddr / "destination",
-    Raw(this.header_length - 20) / "options",
+    "total_length" / int16ub,
+#    Computed(this.total_length - this.foo.header_length) / "payload_length",
+#    int16ub / "identification",
+#    BitStruct(
+#        (Padding(1) >> flag / "dont_fragment" >> flag / "more_fragments") / "flags",
+#        Bits(13) / "frame_offset",
+#    ) / "crap",
+#    int8u / "ttl",
+#    Enum(int8u, ICMP = 1, TCP = 6, UDP = 17) / "protocol",
+#    int16ub / "checksum",
+#    ipaddr / "source",
+#    ipaddr / "destination",
+#    Raw(this.header_length - 20) / "options",
 )
 
 

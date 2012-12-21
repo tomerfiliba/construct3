@@ -1,6 +1,6 @@
 from construct3.packers import Switch, contextify, Range, Raw, Struct, Bitwise
 from construct3.adapters import LengthValue, StringAdapter, Mapping
-from construct3.lib.binutil import int_to_byte
+import six
 
 
 def If(cond, thenpkr, elsepkr):
@@ -13,16 +13,17 @@ def PascalString(lengthpkr, encoding = "utf8"):
 def Array(count, itempkr):
     return Range(count, count, itempkr)
 
-def Bijection(pkr, dec_mapping, default = NotImplemented):
-    return Mapping(pkr, dec_mapping, default, {v:k for k, v in dec_mapping.items()}, default)
+def Bijection(pkr, enc_mapping, default = NotImplemented):
+    dec_mapping = dict((v, k) for k, v in enc_mapping.items())
+    if default is not NotImplemented:
+        enc_default = enc_mapping[default]
+        dec_default = dec_mapping[enc_default]
+    return Mapping(pkr, dec_mapping, enc_mapping, dec_default, enc_default)
 
 def Enum(pkr, **kwargs):
     return Bijection(pkr, kwargs, kwargs.pop("__default__", NotImplemented))
 
-def Flag(truth = 1, falsehood = 0, default = False):
-    return Bijection(Raw(1), {True : int_to_byte(truth), False : int_to_byte(falsehood)}, default)
-
-flag = Flag()
+flag = Bijection(Raw(1), {True : six.b("\x01"), False : six.b("\x00")}, False)
 
 def BitStruct(*args, **kwargs):
     return Bitwise(Struct(*args, **kwargs))
