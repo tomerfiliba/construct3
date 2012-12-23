@@ -1,6 +1,6 @@
+from six import b
 from construct3.packers import Switch, contextify, Range, Raw, Struct, Bitwise
 from construct3.adapters import LengthValue, StringAdapter, Mapping
-import six
 
 
 def If(cond, thenpkr, elsepkr):
@@ -25,7 +25,7 @@ def Bijection(pkr, enc_mapping, default = NotImplemented):
 def Enum(pkr, **kwargs):
     return Bijection(pkr, kwargs, kwargs.pop("__default__", NotImplemented))
 
-flag = Bijection(Raw(1), {True : six.b("\x01"), False : six.b("\x00")}, False)
+flag = Bijection(Raw(1), {True : b("\x01"), False : b("\x00")}, False)
 
 def BitStruct(*args, **kwargs):
     return Bitwise(Struct(*args, **kwargs))
@@ -33,5 +33,5 @@ def BitStruct(*args, **kwargs):
 def Optional(pkr):
     return pkr[0:1]
 
-
+raw = Raw(1)
 

@@ -67,6 +67,9 @@ class TestNumbers(unittest.TestCase):
         self.assertEqual(TwosComplement(Bitwise(octet), 8).pack(0x88 - 0x100), b("\x88"))
         self.assertEqual(Bitwise(bit >> Padding(2) >> bit >> bit >> Padding(3)).pack([1, 0, 1]), b("\x88"))
         self.assertEqual(Bitwise(nibble >> nibble).pack([8, 7]), b("\x87"))
+
+        self.assertRaises(ValueError, Bitwise(bit >> bit).unpack, b("\x88"))
+        self.assertRaises(ValueError, Bitwise(bit >> bit).pack, [1,1])
     
     def test_int24(self):
         self.assertEqual(int24ub.unpack(b("\x03\x02\x01")), 0x030201)
