@@ -171,14 +171,14 @@ class TwosComplement(Adapter):
 int24ub = Adapter(byte >> int16ub, 
     decode = lambda obj, _: (obj[0] << 16) | obj[1],
     encode = lambda obj, _: (obj >> 16, obj & 0xffff))
-int24sb = TwosComplement(int24ub, 0x100000)
+int24sb = TwosComplement(int24ub, 24)
 int24ul = Adapter(int24ub, 
     decode = lambda obj, _: ((obj >> 16) & 0xff) | (obj & 0xff00) | ((obj & 0xff) << 16),
     encode = lambda obj, _: ((obj >> 16) & 0xff) | (obj & 0xff00) | ((obj & 0xff) << 16))
-int24sl = TwosComplement(int24ul, 0x100000)
+int24sl = TwosComplement(int24ul, 24)
 
 class MaskedInteger(Adapter):
-    """
+    r"""
     >>> m = MaskedInteger(int16ul,
     ...     bottom4 = (0, 4), 
     ...     upper12 = (4, 12),
@@ -191,8 +191,8 @@ class MaskedInteger(Adapter):
     '\x17\x02'
     """
     __slots__ = ["fields"]
-    def __init__(self, subcon, **fields):
-        Adapter.__init__(self, subcon)
+    def __init__(self, underlying, **fields):
+        Adapter.__init__(self, underlying)
         self.fields = [(k, offset, (1 << size) - 1) for k, (offset, size) in fields.items()]
     def encode(self, obj, ctx):
         num = 0

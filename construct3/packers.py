@@ -42,7 +42,7 @@ class Packer(object):
     #
     def __getitem__(self, count):
         if isinstance(count, (tuple, list)):
-            raise TypeError("Either a number or a slice can be given, not %r" % (count,))
+            raise TypeError("Either a number or a slice may be given, not %r" % (count,))
         elif isinstance(count, slice):
             if count.step:
                 raise ValueError("Slice must not contain as step: %r" % (count,))
@@ -185,7 +185,19 @@ def _join(lhs, rhs):
     else:
         raise TypeError("Cannot join %r and %r" % (lhs, rhs))
 
-class Embedded(Packer):
+class NamedPackerMixin(object):
+    # make us look like a tuple
+    def __iter__(self):
+        return iter((None, self))
+    def __len__(self):
+        return 2
+    def __getitem__(self, index):
+        return None if index == 0 else self
+    def __truediv__(self, other):
+        raise TypeError("Embedded cannot take a name")
+    __div__ = __rdiv__ = __rtruediv__ = __truediv__
+
+class Embedded(Packer, NamedPackerMixin):
     __slots__ = ["underlying"]
     def __init__(self, underlying):
         self.underlying = underlying
@@ -195,17 +207,6 @@ class Embedded(Packer):
         self.underlying._pack(obj, stream, ctx)
     def _sizeof(self, ctx):
         return self.underlying._sizeof(ctx)
-    # make us look like a tuple
-    def __iter__(self):
-        return iter((None, self))
-    def __len__(self):
-        return 2
-    def __getitem__(self, index):
-        return None if index == 0 else self
-    def __truediv__(self, other):
-        raise TypeError("Padding cannot take a name")
-    __div__ = __rdiv__ = __rtruediv__ = __truediv__
-
 
 class Struct(Packer):
     __slots__ = ["members", "container_factory", "_embedded"]
@@ -260,7 +261,7 @@ class Sequence(Packer):
     
     def __init__(self, *members, **kwargs):
         self.members = members
-        self.container_factory = kwargs.pop("container_factory", lambda count: [None] * count)
+        self.container_factory = kwargs.pop("container_factory", list)
         if kwargs:
             raise TypeError("Invalid keyword argument(s): %s" % (", ".join(kwargs.keys()),))
         for mem in members:
@@ -284,14 +285,20 @@ class Sequence(Packer):
                 obj2 = packer._unpack(stream, ctx2)
                 if obj2 is not NotImplemented:
                     obj.append(obj2)
-                    ctx2[i] = v
+                    ctx2[i] = obj2
         return obj
     
     def _pack(self, obj, stream, ctx):
+        from construct3.adapters import Padding
         ctx2 = {"_" : ctx}
-        for i, packer in enumerate(self.members):
-            obj2 = ctx2[i] = obj[i]
-            packer._pack(obj2, stream, ctx2)
+        i = 0
+        for packer in self.members:
+            if isinstance(packer, Padding):
+                packer._pack(None, stream, ctx2)
+            else:
+                obj2 = ctx2[i] = obj[i]
+                packer._pack(obj2, stream, ctx2)
+                i += 1
     
     def _sizeof(self, ctx):
         ctx2 = {"_" : ctx}
@@ -428,7 +435,6 @@ class Bitwise(Packer):
         stream2.close()
     def _sizeof(self, ctx):
         return self.underlying._sizeof(ctx) // 8
-
 
 @singleton
 class anchor(Packer):
