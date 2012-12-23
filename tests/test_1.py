@@ -1,4 +1,4 @@
-from construct3 import Struct, Member as M, int16ub, int32ub, this, int8u, Raw
+from construct3 import Struct, int16ub, int32ub, this, int8u, Raw
 
 ipaddr = int8u[4]
 print ipaddr

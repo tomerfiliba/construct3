@@ -1,5 +1,6 @@
 from construct3.packers import Adapter, noop, Raw, PackerError, contextify
 from construct3.lib import this
+from construct3.lib.containers import Container
 try:
     from io import BytesIO
 except ImportError:
@@ -113,7 +114,7 @@ class Padding(Adapter):
     def decode(self, obj, ctx):
         if self.strict and obj != self.padchar * self.length(ctx):
             raise PaddingError("Wrong padding pattern %r" % (obj,))
-        return None
+        return NotImplemented
     # make us look like a tuple
     def __iter__(self):
         return iter((None, self))
@@ -125,22 +126,19 @@ class Padding(Adapter):
         raise TypeError("Padding cannot take a name")
     __div__ = __rdiv__ = __rtruediv__ = __truediv__
 
-#class FlagsAdapter(Adapter):
-#    __slots__ = ["flags"]
-#    def __init__(self, subcon, flags):
-#        Adapter.__init__(self, subcon)
-#        self.flags = flags
-#    def _encode(self, obj, context):
-#        flags = 0
-#        for name, value in self.flags.items():
-#            if getattr(obj, name, False):
-#                flags |= value
-#        return flags
-#    def _decode(self, obj, context):
-#        obj2 = FlagsContainer()
-#        for name, value in self.flags.items():
-#            setattr(obj2, name, bool(obj & value))
-#        return obj2
+class Flags(Adapter):
+    __slots__ = ["flags"]
+    def __init__(self, underlying, **flags):
+        Adapter.__init__(self, underlying)
+        self.flags = flags
+    def _encode(self, obj, context):
+        num = 0
+        for name, value in self.flags.items():
+            if obj.get(name, None):
+                num |= value
+        return num
+    def _decode(self, obj, context):
+        return Container((name, bool(obj & mask)) for name, mask in self.flags.items())
 
 class Tunnel(Adapter):
     __slots__ = ["top"]

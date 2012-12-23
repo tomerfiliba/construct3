@@ -238,7 +238,7 @@ class Struct(Packer):
                     ctx2[k] = obj[k] = v
             else:
                 obj2 = mem_packer._unpack(stream, ctx2)
-                if mem_name is not None:
+                if mem_name is not NotImplemented:
                     ctx2[mem_name] = obj[mem_name] = obj2
         return obj
     
@@ -271,11 +271,20 @@ class Sequence(Packer):
         return "Sequence(%s)" % (", ".join(repr(m) for m in self.members),)
     
     def _unpack(self, stream, ctx):
-        obj = self.container_factory(len(self.members))
+        obj = self.container_factory()
         ctx2 = {"_" : ctx}
         for i, packer in enumerate(self.members):
-            obj2 = packer._unpack(stream, ctx2)
-            ctx2[i] = obj[i] = obj2
+            if isinstance(packer, Embedded):
+                obj2 = packer._unpack(stream, ctx)
+                for v in obj2:
+                    if v is not NotImplemented:
+                        obj.append(v)
+                        ctx2[i] = v
+            else:
+                obj2 = packer._unpack(stream, ctx2)
+                if obj2 is not NotImplemented:
+                    obj.append(obj2)
+                    ctx2[i] = v
         return obj
     
     def _pack(self, obj, stream, ctx):
@@ -297,7 +306,7 @@ class Range(Packer):
         self.itempkr = itempkr
     
     def __repr__(self):
-        return "Range(%r..%r, %r)" % (self.mincount, self.maxcount, self.itempkr)
+        return "Range(%r, %r, %r)" % (self.mincount, self.maxcount, self.itempkr)
     
     def _pack(self, obj, stream, ctx):
         mincount = self.mincount(ctx)
@@ -372,7 +381,7 @@ class While(Packer):
         return obj
     
     def _sizeof(self):
-        raise NotImplementedError("Cannot compute sizeof for 'While'")
+        raise NotImplementedError("Cannot compute sizeof of %r" % (self,))
 
 
 class Switch(Packer):
