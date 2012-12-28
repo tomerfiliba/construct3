@@ -112,7 +112,7 @@ class float64l(Formatted):
 #=======================================================================================================================
 # aliases
 #=======================================================================================================================
-byte = int8u
+byte = word8 = int8u
 int8 = int8s
 if sys.byteorder == "little":
     int16 = int16sl
@@ -120,12 +120,19 @@ if sys.byteorder == "little":
     int64 = int64sl
     float32 = float32l
     float64 = float64l
+    word16 = int16ul
+    word32 = int32ul
+    word64 = int64ul
 else:
     int16 = int16sb
     int32 = int32sb
     int64 = int64sb
     float32 = float32b
     float64 = float64b
+    word16 = int16ub
+    word32 = int32ub
+    word64 = int64ub
+
 
 #=======================================================================================================================
 # bitwise stuff
