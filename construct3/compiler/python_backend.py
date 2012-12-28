@@ -139,7 +139,21 @@ if __name__ == "__main__":
     data = BytesIO("\x05helloXXX")
     print test_unpack(data)
 
-
+#import struct as _struct
+#
+#def test_unpack(stream):
+#    var0 = {}
+#    var1 = []
+#    var2 = {'_': var0}
+#    var3, = _struct.unpack('B', stream.read(1))
+#    var1.append(var3)
+#    var2[0] = var3
+#    var3 = stream.read(var2[0])
+#    var1.append(var3)
+#    var2[1] = var3
+#    return var1
+#
+#[5, 'hello']
 
 
 
