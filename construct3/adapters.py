@@ -87,9 +87,9 @@ class LengthValue(Adapter):
     def __init__(self, lengthpkr):
         Adapter.__init__(self, lengthpkr >> Raw(this[0]))
     def decode(self, obj, ctx):
-        return obj["data"]
+        return obj[1]
     def encode(self, obj, ctx):
-        return {"length" : len(obj), "data" : obj}
+        return [len(obj), obj]
 
 class StringAdapter(Adapter):
     __slots__ = ["encoding"]

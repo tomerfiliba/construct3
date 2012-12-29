@@ -24,11 +24,16 @@ class Packer(object):
         stream = BytesIO()
         self._pack(obj, stream, {})
         return stream.getvalue()
+    def pack_to_stream(self, obj, stream):
+        self._pack(obj, stream, {})
     def _pack(self, obj, stream, ctx):
         raise NotImplementedError()
 
-    def unpack(self, buf):
-        return self._unpack(BytesIO(buf), {})
+    def unpack(self, buf_or_stream):
+        if hasattr(buf_or_stream, "read"):
+            return self._unpack(buf_or_stream, {})
+        else:
+            return self._unpack(BytesIO(buf_or_stream), {})
     def _unpack(self, stream, ctx):
         raise NotImplementedError()
 
