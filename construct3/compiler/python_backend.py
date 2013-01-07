@@ -106,6 +106,24 @@ class SequenceVisitor(BaseVisitor):
             STMT("{0}.append({1})", res, tmp)
         return res
 
+@register(Struct)
+class StructVisitor(BaseVisitor):
+    @classmethod
+    def setup(cls, pkr):
+        for _, pkr2 in pkr.members:
+            _get_visitor(pkr2).setup(pkr2)
+
+    @classmethod
+    def generate_unpacker(cls, pkr, streamvar, ctx):
+        res = Variable()
+        STMT("{0} = {{}}", res)
+        ctx2 = {"_" : ctx}
+        for name, pkr2 in pkr.members:
+            tmp = _generate_unpacker(pkr2, streamvar, ctx2)
+            ctx2[name] = tmp
+            STMT("{0}[{1!r}] = {2}", res, name, tmp)
+        return res
+
 @register(Adapter)
 class AdapterVisitor(BaseVisitor):
     @classmethod
@@ -167,15 +185,15 @@ if __name__ == "__main__":
     from construct3.lib import this
     from construct3.numbers import byte
     from construct3.adapters import LengthValue
-    testpkr = Sequence(byte, byte, Sequence(byte, byte, Raw(this[0] + this[1] + this._[0] + this._[1])))
-    #testpkr = LengthValue(byte >> Raw(this[0]))
+    #testpkr = Sequence(byte, byte, Sequence(byte, byte, Raw(this[0] + this[1] + this._[0] + this._[1])))
+    testpkr = Struct("len" / byte, "gth" / byte, "data" / Raw(this.len + this.gth))
     mod = generate(testpkr, "test")
     print testpkr
     mod.dump("testpacker.py")
     import testpacker
     from io import BytesIO
-    #data = BytesIO("\x05helloXX")
-    data = BytesIO("\x01\x01\x01\x02helloXX")
+    data = BytesIO("\x03\x02helloXX")
+    #data = BytesIO("\x01\x01\x01\x02helloXX")
     print testpacker.test_unpack(data)
 
 
