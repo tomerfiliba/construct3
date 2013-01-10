@@ -16,7 +16,8 @@ if six.PY3:
             i -= 1
         return bits
     
-    def bits_to_num(bits, signed = False, _bitarr = six.b("01")):
+    _bitarr = six.b("01")
+    def bits_to_num(bits, signed = False):
         bits = bytes(_bitarr[b & 1] for b in bits)
         if signed and bits[0] == 49:
             bits = bits[1:]

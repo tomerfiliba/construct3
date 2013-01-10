@@ -1,14 +1,12 @@
 import operator
 
-if not hasattr(operator, "truediv"):
-    operator.truediv = operator.div
-
+operator_truediv = operator.truediv if hasattr(operator, "truediv") else operator.div
 
 opnames = {
     operator.add : "+",
     operator.sub : "-",
     operator.mul : "*",
-    operator.div : "/",
+    operator_truediv : "/",
     operator.floordiv : "//",
     operator.mod : "%",
     operator.pow : "**",
@@ -41,7 +39,7 @@ class ExprMixin(object):
     def __floordiv__(self, other):
         return BinExpr(operator.floordiv, self, other)
     def __truediv__(self, other):
-        return BinExpr(operator.div, self, other)
+        return BinExpr(operator_truediv, self, other)
     __div__ = __floordiv__
     def __mod__(self, other):
         return BinExpr(operator.mod, self, other)
@@ -67,7 +65,7 @@ class ExprMixin(object):
     def __rfloordiv__(self, other):
         return BinExpr(operator.floordiv, other, self)
     def __rtruediv__(self, other):
-        return BinExpr(operator.div, other, self)
+        return BinExpr(operator_truediv, other, self)
     __rdiv__ = __rfloordiv__
     def __rmod__(self, other):
         return BinExpr(operator.mod, other, self)
