@@ -54,14 +54,9 @@ class Packer(object):
             return Range(count.start, count.stop, self)
         else:
             return Range(count, count, self)
-    def __rshift__(self, rhs):
-        return _join(self, rhs)
-    def __truediv__(self, name):
-        return NamedPacker(name, self)
-    __rdiv__ = __rtruediv__ = __div__ = __truediv__
-    def __inv__(self):
-        return Embedded(self)
-    __invert__ = __pos__ = __inv__ 
+    def __rtruediv__(self, name):
+        return (name, self)
+    __rdiv__ = __rtruediv__
 
 
 @singleton
@@ -121,7 +116,6 @@ class Adapter(Packer):
         else:
             return obj
 
-
 class Raw(Packer):
     __slots__ = ["length"]
     def __init__(self, length):
@@ -142,67 +136,59 @@ class Raw(Packer):
     def _sizeof(self, ctx):
         return self.length(ctx)
 
-class NamedPacker(tuple):
-    __slots__ = ()
-    def __new__(cls, *args, **kwargs):
-        if (args and kwargs) or (not args and not kwargs):
-            raise TypeError("This function takes either two positional arguments or a single keyword attribute", args, kwargs)
-        elif args:
-            if len(args) != 2:
-                raise TypeError("Expected exactly two positional arguments", args)
-            elif not isinstance(args[0], str):
-                raise TypeError("The first argument must be a string, got %r" % (args[0],))
-            elif not isinstance(args[1], Packer):
-                raise TypeError("The second argument must be a Packer, got %r" % (args[1],))
-        else:
-            if len(kwargs) != 1:
-                raise TypeError("Expected exactly one keyword argument", kwargs)
-            args = kwargs.popitem()
-            if not isinstance(args[1], Packer):
-                raise TypeError("The second argument must be a Packer, got %r" % (args[1],))
-        return tuple.__new__(cls, args)
-    
-    def __rshift__(self, rhs):
-        return _join(self, rhs)
-
-def _join(lhs, rhs):
-    if isinstance(lhs, Sequence):
-        if isinstance(rhs, Packer):
-            lhs.members.append(rhs)
-            return lhs
-        else:
-            raise TypeError("Right-hand side must be a Packer, got %r" % (rhs,))
-    elif isinstance(lhs, Struct):
-        if hasattr(rhs, "__len__") and len(rhs) == 2 and isinstance(rhs[0], str) and isinstance(rhs[1], Packer):
-            lhs.members.append(rhs)
-            return lhs
-        else:
-            raise TypeError("Right-hand side must be a 2-tuple of (name, packer), got %r" % (rhs,))
-    elif isinstance(lhs, Packer) and isinstance(rhs, Packer):
-        pkr = Sequence()
-        pkr.members = [lhs, rhs]
-        return pkr
-    elif (hasattr(lhs, "__len__") and len(lhs) == 2 and isinstance(lhs[0], (str, type(None))) and isinstance(lhs[1], Packer) and
-            hasattr(rhs, "__len__") and len(rhs) == 2 and isinstance(rhs[0], (str, type(None))) and isinstance(rhs[1], Packer)):
-        pkr = Struct()
-        pkr.members = [lhs, rhs]
-        return pkr
+def Named(*args, **kwargs):
+    if (args and kwargs) or (not args and not kwargs):
+        raise TypeError("This function takes either two positional arguments or a single keyword attribute", 
+            args, kwargs)
+    elif args:
+        if len(args) != 2:
+            raise TypeError("Expected exactly two positional arguments", args)
+        elif not isinstance(args[0], str):
+            raise TypeError("The first argument must be a string, got %r" % (args[0],))
+        elif not isinstance(args[1], Packer):
+            raise TypeError("The second argument must be a Packer, got %r" % (args[1],))
     else:
-        raise TypeError("Cannot join %r and %r" % (lhs, rhs))
+        if len(kwargs) != 1:
+            raise TypeError("Expected exactly one keyword argument", kwargs)
+        args = kwargs.popitem()
+        if not isinstance(args[1], Packer):
+            raise TypeError("The second argument must be a Packer, got %r" % (args[1],))
+    return tuple(args)
 
-class NamedPackerMixin(object):
+#class NamedPacker(tuple):
+#    __slots__ = ()
+#    def __new__(cls, *args, **kwargs):
+#        if (args and kwargs) or (not args and not kwargs):
+#            raise TypeError("This function takes either two positional arguments or a single keyword attribute", args, kwargs)
+#        elif args:
+#            if len(args) != 2:
+#                raise TypeError("Expected exactly two positional arguments", args)
+#            elif not isinstance(args[0], str):
+#                raise TypeError("The first argument must be a string, got %r" % (args[0],))
+#            elif not isinstance(args[1], Packer):
+#                raise TypeError("The second argument must be a Packer, got %r" % (args[1],))
+#        else:
+#            if len(kwargs) != 1:
+#                raise TypeError("Expected exactly one keyword argument", kwargs)
+#            args = kwargs.popitem()
+#            if not isinstance(args[1], Packer):
+#                raise TypeError("The second argument must be a Packer, got %r" % (args[1],))
+#        return tuple.__new__(cls, args)
+
+class UnnamedPackerMixin(object):
     # make us look like a tuple
+    __slots__ = []
     def __iter__(self):
         return iter((None, self))
     def __len__(self):
         return 2
     def __getitem__(self, index):
         return None if index == 0 else self
-    def __truediv__(self, other):
-        raise TypeError("Embedded cannot take a name")
-    __div__ = __rdiv__ = __rtruediv__ = __truediv__
+    def __rtruediv__(self, other):
+        raise TypeError("%s cannot take a name" % (self.__class__.__name__,))
+    __rdiv__ = __rtruediv__
 
-class Embedded(Packer, NamedPackerMixin):
+class Embedded(Packer, UnnamedPackerMixin):
     __slots__ = ["underlying"]
     def __init__(self, underlying):
         self.underlying = underlying
@@ -214,17 +200,16 @@ class Embedded(Packer, NamedPackerMixin):
         return self.underlying._sizeof(ctx)
 
 class Struct(Packer):
-    __slots__ = ["members", "container_factory", "_embedded"]
+    __slots__ = ["members", "container_factory"]
     
     def __init__(self, *members, **kwargs):
         self.members = members
-        self._embedded = False
         self.container_factory = kwargs.pop("container_factory", Container)
         if kwargs:
             raise TypeError("invalid keyword argument(s): %s" % (", ".join(kwargs.keys()),))
         names = set()
         for mem in members:
-            if not hasattr(mem, "__len__") or len(mem) != 2 or not isinstance(mem[1], Packer):
+            if not hasattr(mem, "__len__") or len(mem) != 2 or not isinstance(mem[0], str) or not isinstance(mem[1], Packer):
                 raise TypeError("Struct members must be 2-tuples of (name, Packer): %r" % (mem,))
             if mem[0] in names:
                 raise TypeError("Member %r already exists in this struct" % (mem[0],))
@@ -260,6 +245,7 @@ class Struct(Packer):
     def _sizeof(self, ctx):
         ctx2 = {"_" : ctx}
         return sum(mem_packer.sizeof(ctx2) for _, mem_packer in self.members)
+
 
 class Sequence(Packer):
     __slots__ = ["members", "container_factory"]
@@ -345,18 +331,18 @@ class Range(Packer):
             maxcount = sys.maxint
         assert maxcount >= mincount
         ctx2 = {"_" : ctx}
-        obj = [None] * maxcount
+        obj = []
         for i in xrange(maxcount):
             try:
                 obj2 = self.itempkr._unpack(stream, ctx2)
             except PackerError as ex:
                 if i >= mincount:
-                    obj = obj[:i]
                     break
                 else:
                     raise RangeError("Expected %s items, found %s\nUnderlying exception: %r" % (
                         mincount if mincount == maxcount else "%s..%s" % (mincount, maxcount), i, ex))
-            obj[i] = ctx2[i] = obj2
+            ctx2[i] = obj2
+            obj.append(obj2)
         return obj
 
     def _sizeof(self, ctx):
@@ -398,7 +384,7 @@ class While(Packer):
 
 class Switch(Packer):
     __slots__ = ["expr", "cases", "default"]
-    def __init__(self, expr, cases, default = None):
+    def __init__(self, expr, cases, default = NotImplemented):
         self.expr = contextify(expr)
         self.cases = cases
         self.default = default
@@ -407,10 +393,10 @@ class Switch(Packer):
         val = self.expr(ctx)
         if val in self.cases:
             return self.cases[val]
-        elif self.default:
+        elif self.default is not NotImplemented:
             return self.default
         else:
-            raise SwitchError("cannot find a handler for value", val)
+            raise SwitchError("Cannot find a handler for %r" % (val,))
     
     def _pack(self, obj, stream, ctx):
         pkr = self._choose_packer(ctx)
@@ -429,6 +415,8 @@ class Switch(Packer):
 class Bitwise(Packer):
     def __init__(self, underlying):
         self.underlying = underlying
+    def __repr__(self):
+        return "Bitwise(%r)" % (self.underlying,)
     def _unpack(self, stream, ctx):
         stream2 = BitStreamReader(stream)
         obj = self.underlying._unpack(stream2, ctx)
@@ -444,6 +432,8 @@ class Bitwise(Packer):
 @singleton
 class anchor(Packer):
     __slots__ = ()
+    def __repr__(self):
+        return "anchor"
     def _unpack(self, stream, context):
         return stream.tell()
     def _pack(self, obj, stream, ctx):
@@ -456,6 +446,8 @@ class Pointer(Packer):
     def __init__(self, offset, underlying):
         self.underlying = underlying
         self.offset = contextify(offset)
+    def __repr__(self):
+        return "Pointer(%r, %r)" % (self.offset, self.underlying)
     def _unpack(self, stream, ctx):
         newpos = self.offset(ctx)
         origpos = stream.tell()

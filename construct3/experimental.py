@@ -47,13 +47,13 @@ class DigestedStruct(Struct):
 #                    lambda ctx: ctx.update(__digestor__ = digestor_factory()))
 
 if __name__ == "__main__":
-    from construct3 import int64ub
+    from construct3 import uint64b
     from hashlib import md5
 
     d = DigestedStruct(
-        ("foo", Digested(int64ub)),
-        ("bar", int64ub),
-        ("spam", Digested(int64ub)),
+        ("foo", Digested(uint64b)),
+        ("bar", uint64b),
+        ("spam", Digested(uint64b)),
         digestor_factory = md5
     )
     obj, dig = d.unpack("abcdefgh12345678ABCDEFGH")

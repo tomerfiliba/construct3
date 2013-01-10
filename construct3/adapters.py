@@ -1,4 +1,4 @@
-from construct3.packers import Adapter, noop, Raw, PackerError, contextify
+from construct3.packers import Adapter, noop, Raw, PackerError, contextify, UnnamedPackerMixin, Sequence
 from construct3.lib import this
 from construct3.lib.containers import Container
 try:
@@ -85,7 +85,7 @@ class Mapping(Adapter):
 class LengthValue(Adapter):
     __slots__ = ()
     def __init__(self, lengthpkr):
-        Adapter.__init__(self, lengthpkr >> Raw(this[0]))
+        Adapter.__init__(self, Sequence(lengthpkr, Raw(this[0])))
     def decode(self, obj, ctx):
         return obj[1]
     def encode(self, obj, ctx):
@@ -101,7 +101,7 @@ class StringAdapter(Adapter):
     def encode(self, obj, ctx):
         return obj.encode(self.encoding)
 
-class Padding(Adapter):
+class Padding(Adapter, UnnamedPackerMixin):
     def __init__(self, length, padchar = six.b("\x00"), strict = False):
         self.length = contextify(length)
         self.padchar = padchar
@@ -115,16 +115,6 @@ class Padding(Adapter):
         if self.strict and obj != self.padchar * self.length(ctx):
             raise PaddingError("Wrong padding pattern %r" % (obj,))
         return NotImplemented
-    # make us look like a tuple
-    def __iter__(self):
-        return iter((None, self))
-    def __len__(self):
-        return 2
-    def __getitem__(self, index):
-        return None if index == 0 else self
-    def __truediv__(self, other):
-        raise TypeError("Padding cannot take a name")
-    __div__ = __rdiv__ = __rtruediv__ = __truediv__
 
 class Flags(Adapter):
     __slots__ = ["flags"]

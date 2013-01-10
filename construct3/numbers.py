@@ -1,7 +1,7 @@
 import sys
 import struct as _struct
 from construct3.lib import singleton
-from construct3.packers import Adapter, Raw
+from construct3.packers import Adapter, Raw, Sequence
 from construct3.lib.binutil import num_to_bits, swap_bytes, bits_to_num
 from construct3.lib.containers import Container
 
@@ -20,72 +20,72 @@ class Formatted(Adapter):
         return self.fmt.unpack(obj)[0]
 
 @singleton
-class int8u(Formatted):
+class uint8(Formatted):
     """Unsigned 8-bit integer"""
     FORMAT = "B"
 
 @singleton
-class int8s(Formatted):
+class sint8(Formatted):
     """Signed 8-bit integer"""
     FORMAT = "b"
 
 @singleton
-class int16ub(Formatted):
+class uint16b(Formatted):
     """Unsigned big-endian 16-bit integer"""
     FORMAT = "!H"
 
 @singleton
-class int16sb(Formatted):
+class sint16b(Formatted):
     """Signed big-endian 16-bit integer"""
     FORMAT = "!h"
 
 @singleton
-class int16ul(Formatted):
+class uint16l(Formatted):
     """Unsigned little-endian 16-bit integer"""
     FORMAT = "<H"
 
 @singleton
-class int16sl(Formatted):
+class sint16l(Formatted):
     """Signed little-endian 16-bit integer"""
     FORMAT = "<h"
 
 @singleton
-class int32ub(Formatted):
+class uint32b(Formatted):
     """Unsigned big-endian 32-bit integer"""
     FORMAT = "!L"
 
 @singleton
-class int32sb(Formatted):
+class sint32b(Formatted):
     """Signed big-endian 32-bit integer"""
     FORMAT = "!l"
 
 @singleton
-class int32ul(Formatted):
+class uint32l(Formatted):
     """Unsigned little-endian 32-bit integer"""
     FORMAT = "<L"
 
 @singleton
-class int32sl(Formatted):
+class sint32l(Formatted):
     """Signed little-endian 32-bit integer"""
     FORMAT = "<l"
 
 @singleton
-class int64ub(Formatted):
+class uint64b(Formatted):
     """Unsigned big-endian 64-bit integer"""
     FORMAT = "!Q"
 
 @singleton
-class int64sb(Formatted):
+class sint64b(Formatted):
     """Signed big-endian 64-bit integer"""
     FORMAT = "!q"
 
 @singleton
-class int64ul(Formatted):
+class uint64l(Formatted):
     """Unsigned little-endian 64-bit integer"""
     FORMAT = "<Q"
 
 @singleton
-class int64sl(Formatted):
+class sint64l(Formatted):
     """Signed little-endian 64-bit integer"""
     FORMAT = "<q"
 
@@ -112,26 +112,26 @@ class float64l(Formatted):
 #=======================================================================================================================
 # aliases
 #=======================================================================================================================
-byte = word8 = int8u
-int8 = int8s
+word8 = uint8
+int8 = sint8
 if sys.byteorder == "little":
-    int16 = int16sl
-    int32 = int32sl
-    int64 = int64sl
+    int16 = sint16l
+    int32 = sint32l
+    int64 = sint64l
     float32 = float32l
     float64 = float64l
-    word16 = int16ul
-    word32 = int32ul
-    word64 = int64ul
+    word16 = uint16l
+    word32 = uint32l
+    word64 = uint64l
 else:
-    int16 = int16sb
-    int32 = int32sb
-    int64 = int64sb
+    int16 = sint16b
+    int32 = sint32b
+    int64 = sint64b
     float32 = float32b
     float64 = float64b
-    word16 = int16ub
-    word32 = int32ub
-    word64 = int64ub
+    word16 = uint16b
+    word32 = uint32b
+    word64 = uint64b
 
 
 #=======================================================================================================================
@@ -175,14 +175,14 @@ class TwosComplement(Adapter):
     def decode(self, obj, ctx):
         return obj - self.maxval if obj & self.midval else obj
 
-int24ub = Adapter(byte >> int16ub, 
+uint24b = Adapter(Sequence(uint8, uint16b), 
     decode = lambda obj, _: (obj[0] << 16) | obj[1],
     encode = lambda obj, _: (obj >> 16, obj & 0xffff))
-int24sb = TwosComplement(int24ub, 24)
-int24ul = Adapter(int24ub, 
+sint24b = TwosComplement(uint24b, 24)
+uint24l = Adapter(uint24b, 
     decode = lambda obj, _: ((obj >> 16) & 0xff) | (obj & 0xff00) | ((obj & 0xff) << 16),
     encode = lambda obj, _: ((obj >> 16) & 0xff) | (obj & 0xff00) | ((obj & 0xff) << 16))
-int24sl = TwosComplement(int24ul, 24)
+sint24l = TwosComplement(uint24l, 24)
 
 class MaskedInteger(Adapter):
     r"""
@@ -208,18 +208,6 @@ class MaskedInteger(Adapter):
         return num
     def decode(self, obj, ctx):
         return Container((name, (obj >> offset) & mask) for name, offset, mask in self.fields)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
