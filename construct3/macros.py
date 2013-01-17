@@ -1,10 +1,10 @@
 from six import b
-from construct3.packers import Switch, contextify, Range, Raw, Struct, Bitwise
+from construct3.packers import Switch, _contextify, Range, Raw, Struct, Bitwise
 from construct3.adapters import LengthValue, StringAdapter, Mapping, Padding
 
 
 def If(cond, thenpkr, elsepkr):
-    return Switch(lambda ctx, cond = contextify(cond): bool(cond(ctx)), 
+    return Switch(lambda ctx, cond = _contextify(cond): bool(cond(ctx)), 
         {True : thenpkr, False : elsepkr})
 
 def PascalString(lengthpkr, encoding = "utf8"):

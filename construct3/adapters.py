@@ -1,4 +1,4 @@
-from construct3.packers import Adapter, noop, Raw, PackerError, contextify, UnnamedPackerMixin, Sequence
+from construct3.packers import Adapter, noop, Raw, PackerError, _contextify, UnnamedPackerMixin, Sequence
 from construct3.lib import this
 from construct3.lib.containers import Container
 try:
@@ -45,7 +45,7 @@ class Computed(SymmetricAdapter):
     __slots__ = ["expr"]
     def __init__(self, expr):
         SymmetricAdapter.__init__(self, noop)
-        self.expr = contextify(expr)
+        self.expr = _contextify(expr)
     def codec(self, obj, ctx):
         return self.expr(ctx)
 
@@ -101,9 +101,9 @@ class StringAdapter(Adapter):
     def encode(self, obj, ctx):
         return obj.encode(self.encoding)
 
-class Padding(Adapter, UnnamedPackerMixin):
+class Padding(UnnamedPackerMixin, Adapter):
     def __init__(self, length, padchar = six.b("\x00"), strict = False):
-        self.length = contextify(length)
+        self.length = _contextify(length)
         self.padchar = padchar
         self.strict = strict
         Adapter.__init__(self, Raw(self.length))
@@ -114,7 +114,7 @@ class Padding(Adapter, UnnamedPackerMixin):
     def decode(self, obj, ctx):
         if self.strict and obj != self.padchar * self.length(ctx):
             raise PaddingError("Wrong padding pattern %r" % (obj,))
-        return NotImplemented
+        return None
 
 class Flags(Adapter):
     __slots__ = ["flags"]

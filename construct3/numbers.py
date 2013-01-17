@@ -110,31 +110,6 @@ class float64l(Formatted):
     FORMAT = "<d"
 
 #=======================================================================================================================
-# aliases
-#=======================================================================================================================
-word8 = uint8
-int8 = sint8
-if sys.byteorder == "little":
-    int16 = sint16l
-    int32 = sint32l
-    int64 = sint64l
-    float32 = float32l
-    float64 = float64l
-    word16 = uint16l
-    word32 = uint32l
-    word64 = uint64l
-else:
-    int16 = sint16b
-    int32 = sint32b
-    int64 = sint64b
-    float32 = float32b
-    float64 = float64b
-    word16 = uint16b
-    word32 = uint32b
-    word64 = uint64b
-
-
-#=======================================================================================================================
 # bitwise stuff
 #=======================================================================================================================
 class Bits(Adapter):
@@ -186,7 +161,7 @@ sint24l = TwosComplement(uint24l, 24)
 
 class MaskedInteger(Adapter):
     r"""
-    >>> m = MaskedInteger(int16ul,
+    >>> m = MaskedInteger(uint16l,
     ...     bottom4 = (0, 4), 
     ...     upper12 = (4, 12),
     ... )
@@ -209,7 +184,33 @@ class MaskedInteger(Adapter):
     def decode(self, obj, ctx):
         return Container((name, (obj >> offset) & mask) for name, offset, mask in self.fields)
 
-
+#=======================================================================================================================
+# aliases
+#=======================================================================================================================
+word8 = uint8
+int8 = sint8
+if sys.byteorder == "little":
+    int16 = sint16l
+    int24 = sint24l
+    int32 = sint32l
+    int64 = sint64l
+    float32 = float32l
+    float64 = float64l
+    word16 = uint16l
+    word24 = uint24l
+    word32 = uint32l
+    word64 = uint64l
+else:
+    int16 = sint16b
+    int24 = sint24b
+    int32 = sint32b
+    int64 = sint64b
+    float32 = float32b
+    float64 = float64b
+    word16 = uint16b
+    word24 = uint24b
+    word32 = uint32b
+    word64 = uint64b
 
 
 
