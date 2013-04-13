@@ -23,7 +23,7 @@ setup(name = "construct3",
     keywords = "construct, data structure, binary, parser, builder, pack, unpack",
     #use_2to3 = False,
     #zip_safe = True,
-    long_description = open(os.path.join(HERE, "README.rst"), "r").read(),
+    long_description = open(os.path.join(HERE, "README.md"), "r").read(),
     classifiers = [
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: MIT License",
