@@ -1,5 +1,5 @@
 import itertools
-
+import six
 _counter = itertools.count()
 
 class Container(dict):
@@ -10,7 +10,7 @@ class Container(dict):
     def __setitem__(self, key, val):
         dict.__setitem__(self, key, val)
         if key not in self.__order__:
-            self.__order__[key] = _counter.next()
+            self.__order__[key] = six.next(_counter)
     def __delitem__(self, key):
         dict.__delitem__(self, key)
         del self.__order__[key]
@@ -26,7 +26,7 @@ class Container(dict):
     __setattr__ = __setitem__
     __delattr__ = __delitem__
     def __iter__(self):
-        items = self.__order__.items()
+        items = list(self.__order__.items())
         items.sort(key = lambda item: item[1])
         return (k for k, _ in items)
     def keys(self):
