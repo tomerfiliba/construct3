@@ -168,7 +168,7 @@ if __name__ == "__main__":
     assert bits_to_num(num_to_bits(128, 8)) == 128 
     assert bits_to_num(num_to_bits(255, 8), signed = True) == -1
     assert bits_to_bytes(bytes_to_bits(six.b("ABC"))) == six.b("ABC")
-    print hexdump("hello world what is the up? how\t\r\n\x00\xff are we feeling today?!", 16)
+    print(hexdump("hello world what is the up? how\t\r\n\x00\xff are we feeling today?!", 16))
 
 
 

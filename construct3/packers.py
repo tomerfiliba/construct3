@@ -8,6 +8,9 @@ try:
 except ImportError:
     from cStringIO import StringIO as BytesIO
 
+import six
+from six.moves import xrange
+
 
 class PackerError(Exception):
     pass
@@ -26,7 +29,7 @@ class Packer(object):
         self._pack(obj, stream, {}, Config())
         return stream.getvalue()
     def pack_to_stream(self, obj, stream):
-        self._pack(obj, stream, {}, {})
+        self._pack(obj, stream, {}, Config())
     def _pack(self, obj, stream, ctx, cfg):
         raise NotImplementedError()
 
@@ -38,7 +41,7 @@ class Packer(object):
         raise NotImplementedError()
 
     def sizeof(self, ctx = None, cfg = None):
-        return self._sizeof(ctx if ctx else {}, cfg if cfg else Config())
+        return self._sizeof(ctx or {}, cfg or Config())
     def _sizeof(self, ctx, cfg):
         raise NotImplementedError()
     
@@ -50,7 +53,7 @@ class Packer(object):
             if count.step:
                 raise ValueError("Slice must not contain as step: %r" % (count,))
             return Range(count.start, count.stop, self)
-        elif isinstance(count, (int, long)) or hasattr(count, "__call__"):
+        elif isinstance(count, six.integer_types) or hasattr(count, "__call__"):
             return Range(count, count, self)
         else:
             raise TypeError("Expected a number, a contextual expression or a slice thereof, got %r" % (count,))
@@ -89,11 +92,15 @@ def _contextify(value):
         return CtxConst(value)
 
 class Adapter(Packer):
-    __slots__ = ["underlying", "_decode", "_encode"]
+    #__slots__ = ["underlying", "_decode", "_encode"]
     def __init__(self, underlying, decode = None, encode = None):
         self.underlying = underlying
-        self._decode = decode
-        self._encode = encode
+
+        if not hasattr(self, '_decode') and decode is None:
+            self._decode = decode
+
+        if not hasattr(self, '_encode') and encode is None:
+            self._encode = encode
 
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, self.underlying)
@@ -326,7 +333,7 @@ class Range(Packer):
             mincount = 0
         maxcount = self.maxcount(ctx)
         if maxcount is None:
-            maxcount = sys.maxint
+            maxcount = sys.maxsize
         assert maxcount >= mincount
         if len(obj) < mincount or len(obj) > maxcount:
             raise RangeError("Expected %s items, found %s" % (
@@ -334,6 +341,7 @@ class Range(Packer):
         ctx2 = {"_" : ctx}
         for i, item in enumerate(obj):
             ctx2[i] = item
+            #import ipdb; ipdb.set_trace()
             self.itempkr._pack(item, stream, ctx2, cfg)
     
     def _unpack(self, stream, ctx, cfg):
@@ -342,7 +350,7 @@ class Range(Packer):
             mincount = 0
         maxcount = self.maxcount(ctx)
         if maxcount is None:
-            maxcount = sys.maxint
+            maxcount = sys.maxsize
         assert maxcount >= mincount
         ctx2 = {"_" : ctx}
         obj = []

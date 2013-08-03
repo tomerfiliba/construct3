@@ -1,6 +1,8 @@
 from construct3.packers import Adapter, noop, Raw, PackerError, _contextify, UnnamedPackerMixin, Sequence
 from construct3.lib import this
 from construct3.lib.containers import Container
+from construct3.lib.config import Config
+
 try:
     from io import BytesIO
 except ImportError:
@@ -136,10 +138,10 @@ class Tunnel(Adapter):
         Adapter.__init__(self, bottom)
         self.top = top
     def _decode(self, obj, context):
-        return self.top._unpack(BytesIO(obj), context)
+        return self.top._unpack(BytesIO(obj), context, Config())
     def _encode(self, obj, context):
         stream2 = BytesIO()
-        self.top._pack(obj, stream2, context)
+        self.top._pack(obj, stream2, context, Config())
         return stream2.getvalue()
 
 
